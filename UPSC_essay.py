@@ -40,5 +40,15 @@ Whether played in a quiet park or on a global championship stage, the royal game
 
 prompt = f"analyse this essay and provide a quality summary of the essay and a score out of 10 /n {essay}"
 
+class upscState(TypedDict):
+    essay: str
+    langfeed: str
+    anafeed: str
+    qualfeed: str
+    indi_score: str
+
+
+
 ans = newllm.invoke(prompt)
 print(ans.score)
+print(ans.feedback)
