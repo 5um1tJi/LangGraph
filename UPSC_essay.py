@@ -1,8 +1,9 @@
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END, START
-from typing import TypedDict
+from typing import TypedDict, Annotated
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+import operator
 
 load_dotenv(override=True)
 
@@ -14,7 +15,7 @@ class eval(BaseModel):
     feedback: str = Field(description="Feedback of the essay")
     score : int = Field(description="Score out of 10", ge=0, le=10)
 
-newllm = llm.with_structured_output(eval)
+newllm = llm.with_structured_output(eval, method="json_mode")
 essay = """
 Chess is a game that strips away luck entirely, leaving only strategy, foresight, and raw mental discipline.
 Played across a modest sixty-four-square board, it has survived for centuries as one of humanity's greatest intellectual tests.
@@ -37,18 +38,54 @@ Children who learn chess often develop sharper problem-solving skills, better co
 At its core, chess is a universal language bridging cultures, ages, and backgrounds through pure intellectual competition.
 Whether played in a quiet park or on a global championship stage, the royal game remains an enduring masterpiece of human ingenuity.
 """
-
-prompt = f"analyse this essay and provide a quality summary of the essay and a score out of 10 /n {essay}"
-
 class upscState(TypedDict):
     essay: str
     langfeed: str
     anafeed: str
     qualfeed: str
-    indi_score: str
+    final_feed: str
+    indi_score: Annotated[list[float], operator.add]
+    avg_score : float
 
 
+def eval_lang(state: upscState):
+    prompt = f"Analyse this essay and provide a language quality feedback and a score out of 10. Respond in valid json format. \n {state['essay']}"
+    output = newllm.invoke(prompt)
+    return {"langfeed": output.feedback, "indi_score" : [output.score]}
 
-ans = newllm.invoke(prompt)
-print(ans.score)
-print(ans.feedback)
+def eval_ana(state: upscState):
+    prompt = f"Analyse this essay and provide an analysis feedback and a score out of 10. Respond in valid json format. \n {state['essay']}"
+    output = newllm.invoke(prompt)
+    return {"anafeed": output.feedback, "indi_score" : [output.score]}
+
+def eval_thoug(state: upscState):
+    prompt = f"Analyse the thought process of this essay and provide a feedback and a score out of 10. Respond in valid json format. \n {state['essay']}"
+    output = newllm.invoke(prompt)
+    return {"qualfeed": output.feedback, "indi_score" : [output.score]}
+def final_eval(state: upscState):
+    prompt = f"Based on the following feedback create a summarized feedback. language_feedback - {state['langfeed']} \n analysis_feedback - {state['anafeed']} \n quality_feedback - {state['qualfeed']}"
+    output = llm.invoke(prompt).content
+    return {"final_feed": output}
+
+graph = StateGraph(upscState)
+
+graph.add_node("eval_lang", eval_lang)
+graph.add_node("eval_ana", eval_ana)
+graph.add_node("eval_thoug", eval_thoug)
+graph.add_node("final_eval", final_eval)
+
+graph.add_edge(START,"eval_lang")
+graph.add_edge(START, "eval_ana")
+graph.add_edge(START, "eval_thoug")
+graph.add_edge("eval_lang", "final_eval")
+graph.add_edge("eval_thoug", "final_eval")
+graph.add_edge("eval_ana", "final_eval")
+graph.add_edge("final_eval", END)
+
+workflow = graph.compile()
+
+initial = {
+    "essay": essay
+}
+workflow.invoke(initial)
+
