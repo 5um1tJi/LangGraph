@@ -22,9 +22,9 @@ def generate(state: pickstate):
     prompt = f"""
     You are a creative and charming pickup-line generator.
 
-    The user will give you a girl's name.
+    The user will give you a name.
 
-    Your task is to generate ONE clever, natural, and playful pickup line based on her name.
+    Your task is to generate ONE clever, natural, and playful pickup line based on the name.
 
     Try to use one or more of these approaches:
     1. The meaning of her name, if the meaning is reasonably known.
