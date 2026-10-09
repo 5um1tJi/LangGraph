@@ -57,7 +57,7 @@ graph.add_edge("translate", END)
 
 workflow = graph.compile()
 
-initial = {"prasn" : "UFC"}
+initial = {"prasn" : "Chess"}
 
 resp = workflow.invoke(initial)
 print(resp)
